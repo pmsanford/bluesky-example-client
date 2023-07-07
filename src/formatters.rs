@@ -136,5 +136,8 @@ async fn summarize_quoted_post(record: &RecordView) -> Result<String> {
             feed.display_name,
             feed.creator.handle
         ),
+        atrium_api::app::bsky::embed::record::ViewRecordEnum::AppBskyGraphDefsListView(ref _gd) => {
+            "".into()
+        }
     })
 }

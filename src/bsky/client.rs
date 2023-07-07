@@ -1,26 +1,42 @@
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Result};
-use atrium_api::app::bsky::actor::get_profile::{GetProfile, Parameters as GetProfileParams};
+use atrium_api::app::bsky::actor::get_profile::Parameters as GetProfileParams;
 use atrium_api::app::bsky::feed::defs::PostView;
+use atrium_api::client::AtpServiceClient;
+use atrium_api::com::atproto::server::create_session::Input as CreateSessionInput;
+use atrium_xrpc::client::reqwest::ReqwestClient;
 
-use super::session::{create_session, BSkySession};
-use atrium_api::app::bsky::feed::get_posts::{GetPosts, Parameters as GetPostsParams};
-use atrium_api::com::atproto::server::refresh_session::RefreshSession;
-use atrium_api::xrpc::http;
+use super::session::BSkySession;
+use atrium_api::app::bsky::feed::get_posts::Parameters as GetPostsParams;
 use chrono::Utc;
 
-pub struct BSky {
-    inner: reqwest::Client,
+struct BSkyXrpc {
+    inner: Arc<ReqwestClient>,
     session: Mutex<BSkySession>,
+}
+
+pub struct BSky {
+    client: Arc<AtpServiceClient<BSkyXrpc>>,
+    xrpc: Arc<BSkyXrpc>,
 }
 
 impl BSky {
     pub async fn login(username: String, password: String) -> Result<Self> {
-        let session = create_session(username, password).await.map_anyhow()?;
+        let bootstrap =
+            AtpServiceClient::new(Arc::new(ReqwestClient::new("https://bsky.social".into())));
+        let input = CreateSessionInput {
+            identifier: username,
+            password,
+        };
+        let session = bootstrap.com.atproto.server.create_session(input).await?;
+        let xrpc = Arc::new(BSkyXrpc {
+            inner: Arc::new(ReqwestClient::new("https://bsky.social".into())),
+            session: Mutex::new(session.try_into()?),
+        });
         Ok(Self {
-            inner: Default::default(),
-            session: Mutex::new(session),
+            client: Arc::new(AtpServiceClient::new(xrpc.clone())),
+            xrpc,
         })
     }
 
@@ -29,12 +45,13 @@ impl BSky {
         let prof_params = GetProfileParams {
             actor: handle.clone(),
         };
-        let profile = self.get_profile(prof_params).await.map_anyhow()?;
+
+        let profile = self.client.app.bsky.actor.get_profile(prof_params).await?;
 
         let posts_params = GetPostsParams {
             uris: vec![format!("at://{}/app.bsky.feed.post/{id}", profile.did)],
         };
-        let posts = self.get_posts(posts_params).await.map_anyhow()?;
+        let posts = self.client.app.bsky.feed.get_posts(posts_params).await?;
         let post = posts
             .posts
             .into_iter()
@@ -47,14 +64,16 @@ impl BSky {
     async fn ensure_token_valid(&self) -> Result<()> {
         let jwt_expired = {
             let session = self
+                .xrpc
                 .session
                 .lock()
                 .map_err(|e| anyhow!("session mutex is poisoned: {e}"))?;
             Utc::now() > session.access_jwt_exp
         };
         if jwt_expired {
-            let refreshed = self.refresh_session().await.map_anyhow()?;
+            let refreshed = self.client.com.atproto.server.refresh_session().await?;
             let mut session = self
+                .xrpc
                 .session
                 .lock()
                 .map_err(|e| anyhow!("session mutex is poisoned: {e}"))?;
@@ -65,24 +84,17 @@ impl BSky {
 }
 
 #[async_trait::async_trait]
-impl atrium_api::xrpc::HttpClient for BSky {
+impl atrium_xrpc::HttpClient for BSkyXrpc {
     async fn send(
         &self,
         req: http::Request<Vec<u8>>,
-    ) -> Result<http::Response<Vec<u8>>, Box<dyn std::error::Error>> {
-        let res = self.inner.execute(req.try_into()?).await?;
-        let mut builder = http::Response::builder().status(res.status());
-        for (k, v) in res.headers() {
-            builder = builder.header(k, v);
-        }
-        builder
-            .body(res.bytes().await?.to_vec())
-            .map_err(Into::into)
+    ) -> Result<http::Response<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
+        self.inner.send(req).await
     }
 }
 
 #[async_trait::async_trait]
-impl atrium_api::xrpc::XrpcClient for BSky {
+impl atrium_xrpc::XrpcClient for BSkyXrpc {
     fn host(&self) -> &str {
         "https://bsky.social"
     }
@@ -108,5 +120,3 @@ impl<T> BoxToAnyhow<T> for Result<T, Box<dyn std::error::Error>> {
         self.map_err(|e| anyhow!("{e}"))
     }
 }
-
-atrium_api::impl_traits!(BSky);

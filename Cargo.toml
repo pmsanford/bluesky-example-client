@@ -8,16 +8,21 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.71"
 async-trait = "0.1.68"
-atrium-api = { git = "https://github.com/pmsanford/atrium.git", branch = "owned-auth-value" }
+atrium-api = "0.4.0"
+atrium-xrpc = "0.3.0"
 chrono = "0.4.26"
 chrono-tz = "0.8.2"
 colored = "2.0.0"
+http = "0.2.9"
 jwt = "0.16.0"
 lazy_static = "1.4.0"
 regex = "1.8.4"
 reqwest = "0.11.18"
 rustyline = "11.0.0"
 serde = { version = "1.0.164", features = ["derive"] }
+serde_qs = "0.12.0"
 tokio = { version = "1.28.2", features = ["macros", "rt-multi-thread"] }
+tokio-tungstenite = "0.19.0"
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["fmt"] }
+tungstenite = "0.19.0"

@@ -48,7 +48,7 @@ async fn main() -> Result<()> {
                         _ => println!("Couldn't understand that URL"),
                     }
                 } else {
-                    println!("Couldn't find a post URL in there");
+                    println!("Didn't understand that");
                 }
             }
             Err(ReadlineError::Interrupted | ReadlineError::Eof) => break,

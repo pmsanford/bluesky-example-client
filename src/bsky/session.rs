@@ -1,57 +1,9 @@
 use anyhow::{anyhow, Result};
+use atrium_api::com::atproto::server::create_session::Output as CreateSessionOutput;
 use atrium_api::com::atproto::server::refresh_session::Output as RefreshSessionOutput;
-use atrium_api::{
-    com::atproto::server::create_session::{CreateSession, Input, Output as CreateSessionOutput},
-    xrpc::http,
-};
 use chrono::{DateTime, TimeZone, Utc};
 use jwt::{Header, Token};
 use serde::Deserialize;
-
-struct LoginClient;
-
-pub async fn create_session(
-    identifier: String,
-    password: String,
-) -> Result<BSkySession, Box<dyn std::error::Error>> {
-    let l = LoginClient;
-    let input = Input {
-        identifier,
-        password,
-    };
-    let result = l.create_session(input).await?;
-
-    Ok(result.try_into()?)
-}
-
-#[async_trait::async_trait]
-impl atrium_api::xrpc::HttpClient for LoginClient {
-    async fn send(
-        &self,
-        req: http::Request<Vec<u8>>,
-    ) -> Result<http::Response<Vec<u8>>, Box<dyn std::error::Error>> {
-        let res = reqwest::Client::default().execute(req.try_into()?).await?;
-        let mut builder = http::Response::builder().status(res.status());
-        for (k, v) in res.headers() {
-            builder = builder.header(k, v);
-        }
-        builder
-            .body(res.bytes().await?.to_vec())
-            .map_err(Into::into)
-    }
-}
-
-#[async_trait::async_trait]
-impl atrium_api::xrpc::XrpcClient for LoginClient {
-    fn host(&self) -> &str {
-        "https://bsky.social"
-    }
-    fn auth(&self, _: bool) -> Option<String> {
-        None
-    }
-}
-
-atrium_api::impl_traits!(LoginClient);
 
 pub struct BSkySession {
     pub access_jwt: String,
