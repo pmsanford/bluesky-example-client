@@ -54,31 +54,34 @@ fn summarize_post_content(author: &ProfileViewBasic, record: &PostRecord) -> Res
 }
 
 async fn summarize_post_embeds(embed: &PostViewEmbedEnum) -> Result<String> {
+    let embed_summary = match embed {
+        PostViewEmbedEnum::AppBskyEmbedImagesView(images) => summarize_images(images),
+        PostViewEmbedEnum::AppBskyEmbedExternalView(ext) => format!(
+            "{} Links to {} ({})",
+            "-".red(),
+            ext.external.title,
+            ext.external.uri
+        ),
+        PostViewEmbedEnum::AppBskyEmbedRecordView(record) => summarize_quoted_post(record).await?,
+        // A quote tweet plus media
+        PostViewEmbedEnum::AppBskyEmbedRecordWithMediaView(media) => summarize_media(media).await?,
+    };
+
     Ok(format!(
         "\n\t{}:\n\t{}",
         "embeds".bright_red(),
-        match embed {
-            PostViewEmbedEnum::AppBskyEmbedImagesView(images) => summarize_images(images),
-            PostViewEmbedEnum::AppBskyEmbedExternalView(ext) => format!(
-                "{} Links to {} ({})",
-                "-".red(),
-                ext.external.title,
-                ext.external.uri
-            ),
-            PostViewEmbedEnum::AppBskyEmbedRecordView(record) =>
-                summarize_quoted_post(record).await?,
-            // Not sure why a post would use this vs the first two items in this enum - it just
-            // contains one of them
-            PostViewEmbedEnum::AppBskyEmbedRecordWithMediaView(media) => summarize_media(media),
-        }
+        embed_summary
     ))
 }
 
-fn summarize_media(media: &MediaView) -> String {
-    match media.media {
+async fn summarize_media(media: &MediaView) -> Result<String> {
+    let post_summary = summarize_quoted_post(&media.record).await?;
+    let media_summary = match media.media {
         atrium_api::app::bsky::embed::record_with_media::ViewMediaEnum::AppBskyEmbedImagesView(ref images) => summarize_images(images),
         atrium_api::app::bsky::embed::record_with_media::ViewMediaEnum::AppBskyEmbedExternalView(ref external) => summarize_external(external),
-    }
+    };
+
+    Ok(format!("{}\n\t{}", post_summary, media_summary))
 }
 
 fn summarize_external(external: &ExternalView) -> String {
@@ -117,7 +120,8 @@ async fn summarize_quoted_post(record: &RecordView) -> Result<String> {
         atrium_api::app::bsky::embed::record::ViewRecordEnum::ViewRecord(ref rec) => {
             let author = &rec.author;
             if let Record::AppBskyFeedPost(ref record) = rec.value {
-                summarize_post_content(author, record)?
+                let summary = summarize_post_content(author, record)?;
+                format!("{} Quoted post:\n\t\t{}", "-".red(), summary)
             } else {
                 bail!("Whoa, got {:?} instead of AppBskyFeedPost", rec.value);
             }
