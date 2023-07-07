@@ -110,13 +110,3 @@ impl atrium_xrpc::XrpcClient for BSkyXrpc {
         })
     }
 }
-
-trait BoxToAnyhow<T> {
-    fn map_anyhow(self) -> Result<T>;
-}
-
-impl<T> BoxToAnyhow<T> for Result<T, Box<dyn std::error::Error>> {
-    fn map_anyhow(self) -> Result<T> {
-        self.map_err(|e| anyhow!("{e}"))
-    }
-}
