@@ -57,8 +57,9 @@ dependencies = [
 
 [[package]]
 name = "atrium-api"
-version = "0.9.0"
-source = "git+https://github.com/pmsanford/atrium.git?branch=atpservicewrapper-delegate-to-inner#1aa681df7e85eacfa86f7c74a041ac64387209d5"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "328806e40f0fcb646f40d559eb4d9e204f04899b30082d8dd0c4f0aab6ba02bd"
 dependencies = [
  "async-trait",
  "atrium-xrpc",

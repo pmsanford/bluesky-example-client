@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.71"
 async-trait = "0.1.68"
-atrium-api = { git = "https://github.com/pmsanford/atrium.git", branch = "atpservicewrapper-delegate-to-inner" }
+atrium-api = "0.9.1"
 atrium-xrpc = "0.4.0"
 chrono = "0.4.26"
 chrono-tz = "0.8.2"
