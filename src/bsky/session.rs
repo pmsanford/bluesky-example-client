@@ -5,6 +5,7 @@ use chrono::{DateTime, TimeZone, Utc};
 use jwt::{Header, Token};
 use serde::Deserialize;
 
+#[derive(Debug)]
 pub struct BSkySession {
     pub access_jwt: String,
     pub access_jwt_exp: DateTime<Utc>,

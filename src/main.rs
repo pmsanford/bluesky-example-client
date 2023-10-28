@@ -9,7 +9,7 @@ use crate::{bsky::BSky, formatters::get_formatted_post};
 
 lazy_static! {
     static ref BSKY_REGEX: Regex = Regex::new(
-        r#"https?://(:?www.|staging.)?bsky.app/profile/(?P<handle>.+)/post/(?P<postid>.+)\??.*"#
+        r"https?://(:?www.|staging.)?bsky.app/profile/(?P<handle>.+)/post/(?P<postid>.+)\??.*"
     )
     .unwrap();
 }

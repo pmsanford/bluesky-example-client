@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use anyhow::{anyhow, Result};
 use atrium_api::app::bsky::actor::get_profile::Parameters as GetProfileParams;
 use atrium_api::app::bsky::feed::defs::PostView;
-use atrium_api::client::AtpServiceClient;
+use atrium_api::client::{AtpService, AtpServiceClient, AtpServiceWrapper};
 use atrium_api::com::atproto::server::create_session::Input as CreateSessionInput;
 use atrium_xrpc::client::reqwest::ReqwestClient;
 
@@ -11,29 +11,38 @@ use super::session::BSkySession;
 use atrium_api::app::bsky::feed::get_posts::Parameters as GetPostsParams;
 use chrono::Utc;
 
+#[derive(Clone)]
 struct BSkyXrpc {
     inner: Arc<ReqwestClient>,
-    session: Mutex<BSkySession>,
+    session: Arc<Mutex<BSkySession>>,
 }
 
+#[async_trait::async_trait]
+impl AtpService for BSkyXrpc {}
+
 pub struct BSky {
-    client: Arc<AtpServiceClient<BSkyXrpc>>,
-    xrpc: Arc<BSkyXrpc>,
+    client: Arc<AtpServiceClient<AtpServiceWrapper<BSkyXrpc>>>,
+    xrpc: BSkyXrpc,
 }
 
 impl BSky {
     pub async fn login(username: String, password: String) -> Result<Self> {
-        let bootstrap =
-            AtpServiceClient::new(Arc::new(ReqwestClient::new("https://bsky.social".into())));
+        let bootstrap = AtpServiceClient::new(ReqwestClient::new("https://bsky.social".into()));
         let input = CreateSessionInput {
             identifier: username,
             password,
         };
-        let session = bootstrap.com.atproto.server.create_session(input).await?;
-        let xrpc = Arc::new(BSkyXrpc {
+        let session = bootstrap
+            .service
+            .com
+            .atproto
+            .server
+            .create_session(input)
+            .await?;
+        let xrpc = BSkyXrpc {
             inner: Arc::new(ReqwestClient::new("https://bsky.social".into())),
-            session: Mutex::new(session.try_into()?),
-        });
+            session: Arc::new(Mutex::new(session.try_into()?)),
+        };
         Ok(Self {
             client: Arc::new(AtpServiceClient::new(xrpc.clone())),
             xrpc,
@@ -46,12 +55,26 @@ impl BSky {
             actor: handle.clone(),
         };
 
-        let profile = self.client.app.bsky.actor.get_profile(prof_params).await?;
+        let profile = self
+            .client
+            .service
+            .app
+            .bsky
+            .actor
+            .get_profile(prof_params)
+            .await?;
 
         let posts_params = GetPostsParams {
             uris: vec![format!("at://{}/app.bsky.feed.post/{id}", profile.did)],
         };
-        let posts = self.client.app.bsky.feed.get_posts(posts_params).await?;
+        let posts = self
+            .client
+            .service
+            .app
+            .bsky
+            .feed
+            .get_posts(posts_params)
+            .await?;
         let post = posts
             .posts
             .into_iter()
@@ -71,7 +94,14 @@ impl BSky {
             Utc::now() > session.access_jwt_exp
         };
         if jwt_expired {
-            let refreshed = self.client.com.atproto.server.refresh_session().await?;
+            let refreshed = self
+                .client
+                .service
+                .com
+                .atproto
+                .server
+                .refresh_session()
+                .await?;
             let mut session = self
                 .xrpc
                 .session
@@ -85,15 +115,14 @@ impl BSky {
 
 #[async_trait::async_trait]
 impl atrium_xrpc::HttpClient for BSkyXrpc {
-    async fn send(
+    async fn send_http(
         &self,
         req: http::Request<Vec<u8>>,
     ) -> Result<http::Response<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
-        self.inner.send(req).await
+        self.inner.send_http(req).await
     }
 }
 
-#[async_trait::async_trait]
 impl atrium_xrpc::XrpcClient for BSkyXrpc {
     fn host(&self) -> &str {
         "https://bsky.social"
