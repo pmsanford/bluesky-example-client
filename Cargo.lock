@@ -57,9 +57,9 @@ dependencies = [
 
 [[package]]
 name = "atrium-api"
-version = "0.9.1"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "328806e40f0fcb646f40d559eb4d9e204f04899b30082d8dd0c4f0aab6ba02bd"
+checksum = "5539d31419ffb409737b51963e1eecd4bb72c18195dd1d6683de92956f29e293"
 dependencies = [
  "async-trait",
  "atrium-xrpc",
@@ -71,9 +71,9 @@ dependencies = [
 
 [[package]]
 name = "atrium-xrpc"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35c68d93cfc911c693310c5a1618c7614c1d45765218b054d77663ff227b29f1"
+checksum = "b8880c7efbe9750010ef44143d0aadca92d0bd45ccf4682752385e9f34af3739"
 dependencies = [
  "async-trait",
  "http",
@@ -176,7 +176,6 @@ dependencies = [
  "anyhow",
  "async-trait",
  "atrium-api",
- "atrium-xrpc",
  "chrono",
  "chrono-tz",
  "colored",
